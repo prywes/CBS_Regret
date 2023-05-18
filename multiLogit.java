@@ -5,39 +5,35 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.StringTokenizer;
 
+import edu.stanford.rsl.jpop.FunctionOptimizer;
+import edu.stanford.rsl.jpop.OptimizableFunction;
 
 
-public class multiLogit  {
+public class multiLogit implements OptimizableFunction {
 
 	/**
 	 * @param args
 	 * @throws IOException 
 	 */
 	public static void main(String[] args) throws IOException {
-		
+		OptimizableFunction logLike = null;
+		FunctionOptimizer fn = new FunctionOptimizer();
+		fn.optimizeFunction(logLike);
 		}
-	//the number of inputs into the maxLike function should be the number of
-	//variables you run the multi logit on plus one for the intercept
-	public static double maxLike(double x1, double x2,double x3,double x4) throws NumberFormatException, IOException{
+	
+	public double logLike(double x,double y,double z) throws NumberFormatException, IOException{
 		
-		double beta1 = x1;
-		double beta2 = x2;
-		double beta3 = x3;
-		double alpha = x4;
+		double beta1 = x;
+		double beta2 = y;
+		double alpha = z;
 		
-		//In quotations should be the location of your actual file
-		File file = new File("/user/user1/ep2505/share_rlg/eden_files/javaFile.csv");
+		File file = new File("/user/user1/ep2505/share_rlg/eden_files/javaT.csv");
 		BufferedReader bufRdr  = new BufferedReader(new FileReader(file));
 		String line = null;
 		int col = 0;
-		//The size of your listing array should be one plus the number of variables
-		//you are running the multi logit on (the one plus is for the click data)
-		double[] listing = new double[4];
-		//you should pre-input the first reqId
+		double[] listing = new double[3];
 		String reqId = "6ccf438384bc8c2e97ea6630fab82af3";
 		double CLL = 0;
-		//Check the max size of a widget and set that to be the size of widget prob
-		//alternatively just make it really big (above 25 to be safe)
 		double[] widgetProb = new double[18];
 		String currentReq = reqId;
 		boolean wasClick = false;
@@ -48,8 +44,8 @@ public class multiLogit  {
 			
 			StringTokenizer st = new StringTokenizer(line,",");
 			while(st.hasMoreTokens()){
-				//coll == length of your listing array
-				if(col == 4){
+				
+				if(col == 3){
 					reqId = st.nextToken();
 				}
 				else{
@@ -63,8 +59,8 @@ public class multiLogit  {
 
 			if(reqId.equals(currentReq)){
 				
-				//make sure to change this line when you add or delete variables
-				widgetProb[widgetIndex] = Math.exp(beta1*listing[1]+beta2*listing[2]+beta2*listing[3]+alpha);
+				
+				widgetProb[widgetIndex] = Math.exp(beta1*listing[1]+beta2*listing[2]+alpha);
 				if(listing[0] == (double)1){
 					wasClick = true;
 					clickIndex = widgetIndex;
@@ -88,18 +84,131 @@ public class multiLogit  {
 				wasClick = false;
 				clickIndex = 100;
 				
-				//make sure to change this line when you add or delete variables
-				widgetProb[widgetIndex] = Math.exp(beta1*listing[1]+beta2*listing[2]+beta3*listing[3]+alpha);
+				//System.out.println("ran");
+				widgetProb[widgetIndex] = Math.exp(beta1*listing[1]+beta2*listing[2]+alpha);
 				if(listing[0] == (double)1){
 					wasClick = true;
 					clickIndex = widgetIndex;
 				}
 				widgetIndex++;
-				
+				//System.out.println(reqId);
 			}
 			
 		}
 		bufRdr.close();
 		return CLL;
 	}
+
+	@Override
+	public void setNumberOfProcessingBlocks(int number) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public int getNumberOfProcessingBlocks() {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+	@Override
+	public double evaluate(double[] x, int block) {
+		// TODO Auto-generated method stub
+		double beta1 = x[0];
+		double beta2 = x[1];
+		double alpha = x[2];
+		
+		File file = new File("/user/user1/ep2505/share_rlg/eden_files/javaT.csv");
+		BufferedReader bufRdr = null;
+		try {
+			bufRdr = new BufferedReader(new FileReader(file));
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		String line = null;
+		int col = 0;
+		double[] listing = new double[3];
+		String reqId = "6ccf438384bc8c2e97ea6630fab82af3";
+		double CLL = 0;
+		double[] widgetProb = new double[18];
+		String currentReq = reqId;
+		boolean wasClick = false;
+		int widgetIndex = 0;
+		int clickIndex = 100;
+		double sum = 0;
+		try {
+			while((line = bufRdr.readLine()) != null){
+				
+				StringTokenizer st = new StringTokenizer(line,",");
+				while(st.hasMoreTokens()){
+					
+					if(col == 3){
+						reqId = st.nextToken();
+					}
+					else{
+						listing[col] = Double.valueOf(st.nextToken());
+					}
+					col++;
+				}
+				//System.out.println(reqId);
+				
+				col = 0;
+
+				if(reqId.equals(currentReq)){
+					
+					
+					widgetProb[widgetIndex] = Math.exp(beta1*listing[1]+beta2*listing[2]+alpha);
+					if(listing[0] == (double)1){
+						wasClick = true;
+						clickIndex = widgetIndex;
+					}
+					widgetIndex++;
+				}
+				else{
+					sum = 0;
+					for(int j = 0; j < 10; j++){
+						sum += widgetProb[j];
+					}
+					if(wasClick){
+						CLL += Math.log(widgetProb[clickIndex]/(sum+1));
+					}
+					else{
+						CLL += Math.log(1/(sum+1));
+					}
+					widgetProb = new double[18];
+					currentReq = reqId;
+					widgetIndex = 0;
+					wasClick = false;
+					clickIndex = 100;
+					
+					//System.out.println("ran");
+					widgetProb[widgetIndex] = Math.exp(beta1*listing[1]+beta2*listing[2]+alpha);
+					if(listing[0] == (double)1){
+						wasClick = true;
+						clickIndex = widgetIndex;
+					}
+					widgetIndex++;
+					//System.out.println(reqId);
+				}
+				
+			}
+		} catch (NumberFormatException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		try {
+			bufRdr.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return CLL;
+	}
+
+	
+
 }
